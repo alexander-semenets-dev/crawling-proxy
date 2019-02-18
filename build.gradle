@@ -28,7 +28,7 @@ dependencies {
 }
 
 bootJar {
-    mainClassName = 'ProxyServer'
+    mainClassName = 'com.personal.crawling.proxy.ProxyServer'
 }
 
 
