@@ -36,20 +36,20 @@ public class ProxyServer {
     }
 
     private static byte[] getCrawledContentJsonObject(String crawlingUrl) {
-        final okhttp3.Request request = new okhttp3.Request.Builder()
-                .url(crawlingUrl)
-                .header("User-Agent", USER_AGENT)
-                .get()
-                .build();
-
         try {
+            final okhttp3.Request request = new okhttp3.Request.Builder()
+                    .url(crawlingUrl)
+                    .header("User-Agent", USER_AGENT)
+                    .get()
+                    .build();
+
             final okhttp3.Response response = httpClient.newCall(request)
                     .execute();
 
             throwCrawlingExceptionIfResponseNotSuccessful(crawlingUrl, response);
 
             return getResponseBodyBytes(response);
-        } catch (IOException e) {
+        } catch (Exception e) {
             final String errorMessage = MessageFormat.format(
                     "Cannot crawl url {0}: {1}",
                     crawlingUrl,
