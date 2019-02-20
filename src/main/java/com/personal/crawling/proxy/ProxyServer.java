@@ -21,6 +21,7 @@ public class ProxyServer {
 
     public static void main(String[] args) {
         Spark.get("/crawl-link", crawlLink());
+        Spark.get("/ping", (request, response) -> "Alive");
         Spark.exception(CrawlingException.class, (exception, request, response) -> {
             response.status(500);
             response.body(exception.getMessage());
