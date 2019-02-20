@@ -1,2 +1,3 @@
 rootProject.name = 'crawling-proxy'
+include 'compute-engine-api'
 
