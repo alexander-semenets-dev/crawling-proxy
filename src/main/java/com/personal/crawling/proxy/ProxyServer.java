@@ -1,10 +1,11 @@
 package com.personal.crawling.proxy;
 
+import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import spark.Route;
+import spark.Request;
 import spark.Spark;
 
 import java.io.IOException;
@@ -20,7 +21,10 @@ public class ProxyServer {
     private static final Logger logger = LoggerFactory.getLogger(ProxyServer.class);
 
     public static void main(String[] args) {
-        Spark.get("/crawl-link", crawlLink());
+        Spark.get("/crawl-link", (request, response) -> {
+//            response.header("content-type", "application/octet-stream");
+            return crawlLink(request);
+        });
         Spark.get("/ping", (request, response) -> "Alive");
         Spark.exception(CrawlingException.class, (exception, request, response) -> {
             response.status(500);
@@ -28,36 +32,51 @@ public class ProxyServer {
         });
     }
 
-    private static Route crawlLink() {
-        return (request, response) -> {
-            final String crawlingUrl = request.queryParams("url");
+    private static byte[] crawlLink(Request request) {
+        final String crawlingUrl = request.queryParams("url");
 
-            return getCrawledContentJsonObject(crawlingUrl);
-        };
+        return getCrawledContentBytes(crawlingUrl);
     }
 
-    private static byte[] getCrawledContentJsonObject(String crawlingUrl) {
+    private static byte[] getCrawledContentBytes(String crawlingUrl) {
+        final HttpUrl httpUrl = HttpUrl.parse(crawlingUrl);
+
+        if (isNull(httpUrl)) {
+            throw new CrawlingException(MessageFormat.format(
+                    "Cannot parse url {0}",
+                    crawlingUrl
+            ));
+        }
+
+        final okhttp3.Request request = new okhttp3.Request.Builder()
+                .url(httpUrl)
+                .header("User-Agent", USER_AGENT)
+                .get()
+                .build();
+
+        final Response response;
+
         try {
-            final okhttp3.Request request = new okhttp3.Request.Builder()
-                    .url(crawlingUrl)
-                    .header("User-Agent", USER_AGENT)
-                    .get()
-                    .build();
-
-            final okhttp3.Response response = httpClient.newCall(request)
+            response = httpClient.newCall(request)
                     .execute();
+        } catch (IOException e) {
+            throw new CrawlingException(MessageFormat.format(
+                    "Cannot execute request to url {0}: {1}",
+                    crawlingUrl,
+                    e.getMessage()
+            ));
+        }
 
-            throwCrawlingExceptionIfResponseNotSuccessful(crawlingUrl, response);
+        throwCrawlingExceptionIfResponseNotSuccessful(crawlingUrl, response);
 
+        try {
             return getResponseBodyBytes(response);
-        } catch (Exception e) {
-            final String errorMessage = MessageFormat.format(
+        } catch (IOException e) {
+            throw new CrawlingException(MessageFormat.format(
                     "Cannot crawl url {0}: {1}",
                     crawlingUrl,
                     e.getMessage()
-            );
-
-            throw new CrawlingException(errorMessage);
+            ));
         }
     }
 
@@ -69,16 +88,14 @@ public class ProxyServer {
             return;
         }
 
-        final String errorMessage = MessageFormat.format(
+        tryCloseResponse(response);
+
+        throw new CrawlingException(MessageFormat.format(
                 "Cannot crawl url {0}: status code - {1}, status message - {2}",
                 crawlingUrl,
                 response.code(),
                 response.message()
-        );
-
-        tryCloseResponse(response);
-
-        throw new CrawlingException(errorMessage);
+        ));
     }
 
     private static byte[] getResponseBodyBytes(Response response) throws IOException {
