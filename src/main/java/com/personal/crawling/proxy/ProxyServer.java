@@ -15,15 +15,19 @@ import static java.util.Objects.isNull;
 
 public class ProxyServer {
 
-    private final static String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:65.0) Gecko/20100101 Firefox/65.0";
+    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:65.0) Gecko/20100101 Firefox/65.0";
+    private static final String CONTENT_TYPE_HEADER = "Content-Type";
 
     private static final OkHttpClient httpClient = new OkHttpClient();
     private static final Logger logger = LoggerFactory.getLogger(ProxyServer.class);
 
     public static void main(String[] args) {
-        Spark.get("/crawl-link", (request, response) -> {
-//            response.header("content-type", "application/octet-stream");
-            return crawlLink(request);
+        Spark.get("/crawl-url", (request, response) -> {
+            final CrawledContent crawledContent = crawlUrl(request);
+
+            response.header(CONTENT_TYPE_HEADER, crawledContent.getContentType());
+
+            return crawledContent.getBytes();
         });
         Spark.get("/ping", (request, response) -> "Alive");
         Spark.exception(CrawlingException.class, (exception, request, response) -> {
@@ -32,13 +36,13 @@ public class ProxyServer {
         });
     }
 
-    private static byte[] crawlLink(Request request) {
+    private static CrawledContent crawlUrl(Request request) {
         final String crawlingUrl = request.queryParams("url");
 
         return getCrawledContentBytes(crawlingUrl);
     }
 
-    private static byte[] getCrawledContentBytes(String crawlingUrl) {
+    private static CrawledContent getCrawledContentBytes(String crawlingUrl) {
         final HttpUrl httpUrl = HttpUrl.parse(crawlingUrl);
 
         if (isNull(httpUrl)) {
@@ -70,7 +74,10 @@ public class ProxyServer {
         throwCrawlingExceptionIfResponseNotSuccessful(crawlingUrl, response);
 
         try {
-            return getResponseBodyBytes(response);
+            return new CrawledContent(
+                    getResponseBodyBytes(response),
+                    response.header(CONTENT_TYPE_HEADER)
+            );
         } catch (IOException e) {
             throw new CrawlingException(MessageFormat.format(
                     "Cannot crawl url {0}: {1}",
