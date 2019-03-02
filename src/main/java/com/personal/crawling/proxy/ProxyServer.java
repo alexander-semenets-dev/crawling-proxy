@@ -10,6 +10,7 @@ import spark.Spark;
 
 import java.io.IOException;
 import java.text.MessageFormat;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.isNull;
 
@@ -18,7 +19,10 @@ public class ProxyServer {
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:65.0) Gecko/20100101 Firefox/65.0";
     private static final String CONTENT_TYPE_HEADER = "Content-Type";
 
-    private static final OkHttpClient httpClient = new OkHttpClient();
+    private static final OkHttpClient httpClient = new OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .build();
+
     private static final Logger logger = LoggerFactory.getLogger(ProxyServer.class);
 
     public static void main(String[] args) {
